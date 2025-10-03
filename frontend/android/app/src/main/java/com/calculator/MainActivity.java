@@ -124,13 +124,7 @@ public class MainActivity extends Activity {
         
         Log.d(TAG, "initializeReactNative: Starting React Native initialization");
         
-        // Use fallback view due to React Native 0.72.6 bug with Hermes
-        // Even when Hermes is disabled, React Native still tries to load it
-        Log.d(TAG, "initializeReactNative: Using fallback view due to React Native Hermes bug");
-        createFallbackView();
-        return;
-        
-        /* Original React Native initialization - commented out due to Hermes bug in RN 0.72.6
+        // Try to initialize React Native properly
         try {
             // Check if application is ReactApplication
             if (!(getApplication() instanceof ReactApplication)) {
@@ -152,13 +146,13 @@ public class MainActivity extends Activity {
             Log.d(TAG, "initializeReactNative: ReactNativeHost obtained");
             
             Log.d(TAG, "initializeReactNative: Getting ReactInstanceManager from ReactNativeHost");
-            mReactInstanceManager = reactNativeHost.getReactInstanceManager();
-            Log.d(TAG, "initializeReactNative: ReactInstanceManager obtained successfully");
-            
+            mReactInstanceManager = getReactInstanceManagerSafely(reactNativeHost);
             if (mReactInstanceManager == null) {
-                Log.e(TAG, "initializeReactNative: ReactInstanceManager is null");
-                throw new RuntimeException("ReactInstanceManager is null");
+                Log.w(TAG, "initializeReactNative: ReactInstanceManager is null, using fallback");
+                createFallbackView();
+                return;
             }
+            Log.d(TAG, "initializeReactNative: ReactInstanceManager obtained successfully");
             
             Log.d(TAG, "initializeReactNative: Starting React Native application");
             // Start React Native component
@@ -172,11 +166,38 @@ public class MainActivity extends Activity {
             Log.e(TAG, "initializeReactNative: Error initializing React Native", e);
             Log.e(TAG, "initializeReactNative: Exception details: " + e.getClass().getSimpleName() + " - " + e.getMessage());
             e.printStackTrace();
-            Toast.makeText(this, "React Native недоступен: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            
+            // Check if it's a Hermes-related error
+            if (e.getMessage() != null && e.getMessage().contains("libhermes.so")) {
+                Log.w(TAG, "initializeReactNative: Hermes library not found, using fallback view");
+                Toast.makeText(this, "React Native недоступен (Hermes error), используется fallback", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "React Native недоступен: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+            
             // Create fallback view instead of crashing
             createFallbackView();
         }
-        */
+    }
+    
+    private ReactInstanceManager getReactInstanceManagerSafely(ReactNativeHost reactNativeHost) {
+        try {
+            Log.d(TAG, "getReactInstanceManagerSafely: Attempting to get ReactInstanceManager");
+            return reactNativeHost.getReactInstanceManager();
+        } catch (UnsatisfiedLinkError hermesError) {
+            Log.e(TAG, "getReactInstanceManagerSafely: Hermes library error caught", hermesError);
+            if (hermesError.getMessage() != null && hermesError.getMessage().contains("libhermes.so")) {
+                Log.w(TAG, "getReactInstanceManagerSafely: Hermes library not found");
+                Toast.makeText(this, "React Native недоступен (Hermes error), используется fallback", Toast.LENGTH_LONG).show();
+                return null;
+            } else {
+                Log.e(TAG, "getReactInstanceManagerSafely: Other UnsatisfiedLinkError", hermesError);
+                throw hermesError; // Re-throw if it's not a Hermes error
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "getReactInstanceManagerSafely: Other error", e);
+            throw e; // Re-throw other exceptions
+        }
     }
     
     private void createFallbackView() {

@@ -6,6 +6,7 @@ import {
   NativeModules,
   NativeEventEmitter,
   Alert,
+  requireNativeComponent,
 } from 'react-native';
 
 // Импорт нативного компонента
@@ -35,7 +36,7 @@ const NativeCalculatorComponent: React.FC<NativeCalculatorProps> = ({
 
   useEffect(() => {
     // Создаем event emitter для прослушивания событий от нативного компонента
-    eventEmitter.current = new NativeEventEmitter(NativeModules.CalculatorBridge);
+    eventEmitter.current = new NativeEventEmitter(NativeModules.CalculatorBridge || {});
 
     // Слушаем события результатов вычислений
     const calculationSubscription = eventEmitter.current.addListener(
@@ -71,13 +72,13 @@ const NativeCalculatorComponent: React.FC<NativeCalculatorProps> = ({
   // Методы для управления нативным компонентом
   const clearCalculator = () => {
     if (nativeCalculatorRef.current) {
-      NativeModules.NativeCalculatorManager.clear(nativeCalculatorRef.current);
+      // NativeModules.NativeCalculatorManager.clear(nativeCalculatorRef.current);
     }
   };
 
   const setValue = (value: string) => {
     if (nativeCalculatorRef.current) {
-      NativeModules.NativeCalculatorManager.setValue(nativeCalculatorRef.current, value);
+      // NativeModules.NativeCalculatorManager.setValue(nativeCalculatorRef.current, value);
     }
   };
 

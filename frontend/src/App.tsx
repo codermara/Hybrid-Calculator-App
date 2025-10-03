@@ -54,22 +54,21 @@ const App: React.FC = () => {
     log('loadHistory: Starting to load history');
     try {
       log('loadHistory: Calling calculatorService.getHistory()');
-      const result = await calculatorService.getHistory();
-      log('loadHistory: Received result from service', result);
+      const historyArray = await calculatorService.getHistory();
+      log('loadHistory: Received history array from service', historyArray);
       
-      if (result.success && result.history) {
-        log('loadHistory: Setting history from result', result.history);
-        setHistory(result.history);
+      if (Array.isArray(historyArray)) {
+        log('loadHistory: Setting history from array', historyArray);
+        setHistory(historyArray);
+        log(`loadHistory: Loaded ${historyArray.length} calculations`);
       } else {
-        log('loadHistory: No valid history found, setting empty array');
+        log('loadHistory: Invalid history format, setting empty array');
         setHistory([]);
       }
-      
-      // Show toast when history is loaded
-      log(`loadHistory: Loaded ${result.history?.length || 0} calculations`);
     } catch (error) {
       log('loadHistory: Error loading history', error);
       console.error('Error loading history:', error);
+      console.error('Error details:', (error as Error).message, (error as Error).stack);
       // Set empty history to prevent crashes
       setHistory([]);
     }
@@ -77,13 +76,10 @@ const App: React.FC = () => {
 
   const clearHistory = async () => {
     try {
-      const result = await calculatorService.clearHistory();
-      if (result.success) {
-        setHistory([]);
-        Alert.alert('Success', 'History cleared successfully');
-      } else {
-        Alert.alert('Error', 'Failed to clear history');
-      }
+      await calculatorService.clearHistory();
+      setHistory([]);
+      Alert.alert('Success', 'History cleared successfully');
+      log('History cleared successfully');
     } catch (error) {
       console.error('Error clearing history:', error);
       Alert.alert('Error', 'Failed to clear history');
@@ -94,13 +90,20 @@ const App: React.FC = () => {
 
   const handleCalculationResult = (result: any) => {
     log('Calculation result received:', result);
+    
     // Добавляем результат в историю
     const newHistoryItem = {
-      expression: result.expression,
-      result: result.result,
+      expression: result.expression || 'Unknown expression',
+      result: result.result || 'Unknown result',
       timestamp: result.timestamp || new Date().toISOString(),
     };
-    setHistory(prev => [newHistoryItem, ...prev]);
+    
+    log('Adding to history:', newHistoryItem);
+    setHistory(prev => {
+      const newHistory = [newHistoryItem, ...prev];
+      log('Updated history length:', newHistory.length);
+      return newHistory;
+    });
   };
 
   const handleCalculatorError = (error: string) => {
@@ -108,61 +111,74 @@ const App: React.FC = () => {
     Alert.alert('Calculator Error', error);
   };
 
-  const renderHistory = () => (
-    <ScrollView style={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Calculation History</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.toggleButton} 
-            onPress={() => setShowNativeCalculator(!showNativeCalculator)}
-          >
-            <Text style={styles.toggleButtonText}>
-              {showNativeCalculator ? 'Hide' : 'Show'} Native Calculator
-            </Text>
-          </TouchableOpacity>
-          {history.length > 0 && (
-            <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>
-              <Text style={styles.clearButtonText}>Clear All</Text>
+  const renderHistory = () => {
+    log('Rendering history. Length:', history.length);
+    log('isLoading:', isLoading);
+    log('showNativeCalculator:', showNativeCalculator);
+    log('History array:', history);
+    
+    return (
+      <ScrollView style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Calculation History</Text>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={styles.toggleButton} 
+              onPress={() => setShowNativeCalculator(!showNativeCalculator)}
+            >
+              <Text style={styles.toggleButtonText}>
+                {showNativeCalculator ? 'Hide' : 'Show'} Native Calculator
+              </Text>
             </TouchableOpacity>
+            {history.length > 0 && (
+              <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>
+                <Text style={styles.clearButtonText}>Clear All</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        
+        {showNativeCalculator && (
+          <NativeCalculatorComponent
+            onCalculationResult={handleCalculationResult}
+            onError={handleCalculatorError}
+          />
+        )}
+        
+        
+        {/* История всегда видна */}
+        <View style={styles.historySection}>
+          <Text style={styles.sectionTitle}>Calculation History ({history.length})</Text>
+          
+          {isLoading ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>Loading history...</Text>
+            </View>
+          ) : history.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No calculations yet</Text>
+              <Text style={styles.emptySubtext}>
+                {showNativeCalculator 
+                  ? 'Use the native calculator above to see history here'
+                  : 'Click "Show Native Calculator" to start calculating'
+                }
+              </Text>
+            </View>
+          ) : (
+            history.map((item, index) => (
+              <View key={index} style={styles.historyItem}>
+                <Text style={styles.expression}>{item.expression}</Text>
+                <Text style={styles.result}>= {item.result}</Text>
+                <Text style={styles.timestamp}>
+                  {new Date(item.timestamp).toLocaleString()}
+                </Text>
+              </View>
+            ))
           )}
         </View>
-      </View>
-      
-      {showNativeCalculator && (
-        <NativeCalculatorComponent
-          onCalculationResult={handleCalculationResult}
-          onError={handleCalculatorError}
-        />
-      )}
-      
-      {isLoading ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>Loading history...</Text>
-        </View>
-      ) : history.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No calculations yet</Text>
-          <Text style={styles.emptySubtext}>
-            {showNativeCalculator 
-              ? 'Use the native calculator above to see history here'
-              : 'Click "Show Native Calculator" to start calculating'
-            }
-          </Text>
-        </View>
-      ) : (
-        history.map((item, index) => (
-          <View key={index} style={styles.historyItem}>
-            <Text style={styles.expression}>{item.expression}</Text>
-            <Text style={styles.result}>= {item.result}</Text>
-            <Text style={styles.timestamp}>
-              {new Date(item.timestamp).toLocaleString()}
-            </Text>
-          </View>
-        ))
-      )}
-    </ScrollView>
-  );
+      </ScrollView>
+    );
+  };
 
   log('App: Rendering component');
   
@@ -186,7 +202,19 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#ffffff',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  historySection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#38383A',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 12,
   },
   header: {
     marginBottom: 16,

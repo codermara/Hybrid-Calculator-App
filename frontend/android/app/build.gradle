@@ -22,7 +22,7 @@ def jscFlavor = 'org.webkit:android-jsc:+'
 /**
  * Whether to enable the Hermes JS engine.
  */
-def enableHermes = false;
+def enableHermes = true;
 
 /**
  * Flipper version
