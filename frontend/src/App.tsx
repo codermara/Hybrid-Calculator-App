@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { CalculatorService } from './services/CalculatorService';
+import NativeCalculatorComponent from './components/NativeCalculator';
 
 // Добавляем логирование
 const log = (message: string, data?: any) => {
@@ -19,6 +20,7 @@ const App: React.FC = () => {
   
   const [history, setHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showNativeCalculator, setShowNativeCalculator] = useState(false);
   
   log('Creating CalculatorService instance');
   const calculatorService = new CalculatorService();
@@ -90,16 +92,49 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCalculationResult = (result: any) => {
+    log('Calculation result received:', result);
+    // Добавляем результат в историю
+    const newHistoryItem = {
+      expression: result.expression,
+      result: result.result,
+      timestamp: result.timestamp || new Date().toISOString(),
+    };
+    setHistory(prev => [newHistoryItem, ...prev]);
+  };
+
+  const handleCalculatorError = (error: string) => {
+    log('Calculator error:', error);
+    Alert.alert('Calculator Error', error);
+  };
+
   const renderHistory = () => (
     <ScrollView style={styles.content}>
       <View style={styles.header}>
         <Text style={styles.title}>Calculation History</Text>
-        {history.length > 0 && (
-          <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>
-            <Text style={styles.clearButtonText}>Clear All</Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.toggleButton} 
+            onPress={() => setShowNativeCalculator(!showNativeCalculator)}
+          >
+            <Text style={styles.toggleButtonText}>
+              {showNativeCalculator ? 'Hide' : 'Show'} Native Calculator
+            </Text>
           </TouchableOpacity>
-        )}
+          {history.length > 0 && (
+            <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>
+              <Text style={styles.clearButtonText}>Clear All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
+      
+      {showNativeCalculator && (
+        <NativeCalculatorComponent
+          onCalculationResult={handleCalculationResult}
+          onError={handleCalculatorError}
+        />
+      )}
       
       {isLoading ? (
         <View style={styles.emptyState}>
@@ -108,7 +143,12 @@ const App: React.FC = () => {
       ) : history.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No calculations yet</Text>
-          <Text style={styles.emptySubtext}>Use the native calculator above to see history here</Text>
+          <Text style={styles.emptySubtext}>
+            {showNativeCalculator 
+              ? 'Use the native calculator above to see history here'
+              : 'Click "Show Native Calculator" to start calculating'
+            }
+          </Text>
         </View>
       ) : (
         history.map((item, index) => (
@@ -149,10 +189,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   header: {
+    marginBottom: 16,
+  },
+  headerButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginTop: 8,
+  },
+  toggleButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  toggleButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   clearButton: {
     backgroundColor: '#FF3B30',
